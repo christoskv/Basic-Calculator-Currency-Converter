@@ -10,7 +10,7 @@ You can find the apk on Releases, in order to try it.
 Application Preview
 =======================
 
-![App Cover](https://imgur.com/gallery/basic-calculator-currency-converter-m16dm0Y)
+![App Cover](https://github.com/christoskv/Basic-Calculator-Currency-Converter/blob/main/AppCover.png)
 
 
 
