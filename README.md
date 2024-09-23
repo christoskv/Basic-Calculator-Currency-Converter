@@ -10,7 +10,7 @@ You can find the apk on Releases, in order to try it.
 Application Preview
 =======================
 
-![App Cover](https://imgur.com/a/X6XyOiV)
+![App Cover](https://imgur.com/a/m16dm0Y)
 
 
 
