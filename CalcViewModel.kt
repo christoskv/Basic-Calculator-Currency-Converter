@@ -64,8 +64,14 @@ class CalcViewModel : ViewModel() {
                 _prevCalcText.value = _equationText.value
                 var result = evaluateEquation(_equationText.value!!).toString()
 
-                // Limit result to 5 decimal places and use Locale.US to avoid locale issues
-                result = String.format(Locale.US, "%.3e", result.toDouble()).trimEnd('0').trimEnd('.')
+                // Format result based on its value
+                result = if (result.length > 9) {
+                    // Format using scientific notation
+                    String.format(Locale.US, "%.3e", result.toDouble()).trimEnd('0').trimEnd('.')
+                } else {
+                    // Format as a normal number with up to 5 decimal places
+                    String.format(Locale.US, "%.5f", result.toDouble()).trimEnd('0').trimEnd('.')
+                }
 
                 //Remove unnecessary .0 from the end of the result
                 if(result.endsWith(".0")){
