@@ -16,7 +16,9 @@ class CalcViewModel : ViewModel() {
     val prevCalcText: LiveData<String> = _prevCalcText
 
     private var resultDisplayed = false  // Track if the last action was a result display
-    private var convertionDisplayed = false
+    private var conversionDisplayed = false
+    private var infinityFlag = false
+    private var networkFlag = false
 
     private val _showCurrencyDialog = MutableLiveData(false)
     val showCurrencyDialog: LiveData<Boolean> get() = _showCurrencyDialog
@@ -25,13 +27,21 @@ class CalcViewModel : ViewModel() {
 
     fun onButtonClick(btn : String) {
         _equationText.value?.let {
+            val lastChar = it.lastOrNull()
+
             if(btn == "AC"){
                 resetToDefault()
                 return
             }
 
-            if(convertionDisplayed) {
+            if(conversionDisplayed || infinityFlag || networkFlag) {
                 resetToDefault()
+
+                // Immediately handle the current button press (after resetting)
+                if (!isOperator(btn) && !isMiscBtn(btn)) {
+                    _equationText.value = btn // Display the button pressed
+                }
+
                 return
             }
 
@@ -47,11 +57,21 @@ class CalcViewModel : ViewModel() {
             }
 
             if(btn == "="){
-                _prevCalcText.value = it
-                var result = evaluateEquation(it).toString()
+                if (isOperator(lastChar.toString())){
+                    _equationText.value = it.substring(0, it.length - 1)
+                }
 
-                // Limit result to 5 decimal places and use Locale.US to avoid locale issues
-                result = String.format(Locale.US, "%.5f", result.toDouble()).trimEnd('0').trimEnd('.')
+                _prevCalcText.value = _equationText.value
+                var result = evaluateEquation(_equationText.value!!).toString()
+
+                // Format result based on its value
+                result = if (result.length > 9) {
+                    // Format using scientific notation
+                    String.format(Locale.US, "%.3e", result.toDouble()).trimEnd('0').trimEnd('.')
+                } else {
+                    // Format as a normal number with up to 5 decimal places
+                    String.format(Locale.US, "%.5f", result.toDouble()).trimEnd('0').trimEnd('.')
+                }
 
                 //Remove unnecessary .0 from the end of the result
                 if(result.endsWith(".0")){
@@ -78,8 +98,6 @@ class CalcViewModel : ViewModel() {
                 resultDisplayed = false
                 return
             }
-
-            val lastChar = it.lastOrNull()
 
             // Allow a negative sign at the start or after an operator, but prevent multiple consecutive '-'
             if (btn == "-") {
@@ -119,6 +137,10 @@ class CalcViewModel : ViewModel() {
         return char in listOf("+", "-", "×", "÷")
     }
 
+    private fun isMiscBtn(char: String): Boolean {
+        return char in listOf("☺", "⌫", "$")
+    }
+
     private fun evaluateEquation(equation: String): Double {
         // Replace special characters × and ÷ with * and / for multiplication and division
         val normalizedEquation = equation.replace('×', '*').replace('÷', '/')
@@ -137,28 +159,57 @@ class CalcViewModel : ViewModel() {
         val tokens = mutableListOf<String>()  // List to store tokens (numbers and operators)
         var currentNumber = ""  // To accumulate digits of a number
         var lastTokenWasOperator = true  // Keep track of whether the last token was an operator
+        var expectExponent = false  // To track if we're inside a number with scientific notation
 
         for (char in equation) {
-            when (char) {
-                in '0'..'9', '.' -> {
-                    // Append digits or decimal points to build the number
+            when {
+                // Handle digits and decimal points
+                char in '0'..'9' || char == '.' -> {
                     currentNumber += char
                     lastTokenWasOperator = false  // We are now building a number
                 }
-                '+', '-', '*', '/' -> {
-                    if (currentNumber.isNotEmpty()) {
-                        tokens.add(currentNumber)  // Add the built number token
-                        currentNumber = ""  // Reset the number builder
-                    }
 
-                    // Handle negative numbers (when '-' appears after an operator or at the start)
-                    if (char == '-' && lastTokenWasOperator) {
-                        currentNumber += char  // This is part of a negative number, so continue building the number
+                // Handle scientific notation (e.g., 1.23e+10)
+                char == 'e' || char == 'E' -> {
+                    if (currentNumber.isNotEmpty()) {
+                        currentNumber += char
+                        expectExponent = true  // Expect an exponent part after 'e'
                     } else {
-                        tokens.add(char.toString())  // Otherwise, it's an operator
-                        lastTokenWasOperator = true  // Mark this as an operator
+                        throw IllegalArgumentException("Invalid number format with 'e'")
                     }
                 }
+
+                // Handle sign for exponent part (e.g., 1.23e-10)
+                char == '+' || char == '-' -> {
+                    if (expectExponent) {
+                        currentNumber += char
+                        expectExponent = false  // We have started building the exponent part
+                    } else {
+                        // Handle this as a regular operator if it's not part of an exponent
+                        if (currentNumber.isNotEmpty()) {
+                            tokens.add(currentNumber)
+                            currentNumber = ""
+                        }
+                        if (char == '-' && lastTokenWasOperator) {
+                            currentNumber += char  // Negative number at the start
+                        } else {
+                            tokens.add(char.toString())  // Add operator
+                            lastTokenWasOperator = true
+                        }
+                    }
+                }
+
+                // Handle operators (not part of scientific notation)
+                char in listOf('+', '-', '*', '/') -> {
+                    if (currentNumber.isNotEmpty()) {
+                        tokens.add(currentNumber)  // Add the number token
+                        currentNumber = ""
+                        expectExponent = false  // Reset exponent tracking
+                    }
+                    tokens.add(char.toString())  // Add the operator token
+                    lastTokenWasOperator = true
+                }
+
                 else -> throw IllegalArgumentException("Invalid character in equation: $char")
             }
         }
@@ -238,6 +289,8 @@ class CalcViewModel : ViewModel() {
             }
         }
 
+        if (stack[0] == Double.POSITIVE_INFINITY || stack[0] == Double.NEGATIVE_INFINITY) infinityFlag = true
+
         return stack[0]
     }
 
@@ -264,8 +317,8 @@ class CalcViewModel : ViewModel() {
                     if (rate != null) {
                         val convertedAmount = amount * rate
                         // Update equationText with converted amount and target currency symbol
-                        _equationText.value = String.format(Locale.US, "%.2f %s", convertedAmount, targetCurrency)
-                        convertionDisplayed = true
+                        _equationText.value = String.format(Locale.US, "%.2e %s", convertedAmount, targetCurrency)
+                        conversionDisplayed = true
                     }
                     previousCurrency = targetCurrency
                 }
@@ -273,7 +326,9 @@ class CalcViewModel : ViewModel() {
                     _equationText.value = "Only EUR"
                 }
             } catch (e: Exception) {
-                println("Error: ${e.message}")
+                networkFlag = true
+                _equationText.value = "No network"
+                _prevCalcText.value = ""
             }
         }
     }
@@ -282,6 +337,8 @@ class CalcViewModel : ViewModel() {
         _equationText.value = "0"
         _prevCalcText.value = ""
         previousCurrency = "EUR"
-        convertionDisplayed = false
+        conversionDisplayed = false
+        infinityFlag = false
+        networkFlag = false
     }
 }

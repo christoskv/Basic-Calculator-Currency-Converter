@@ -1,5 +1,6 @@
 package com.interview.simplecalculator
 
+import android.content.res.Configuration
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -9,22 +10,30 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -43,6 +52,13 @@ val calcButtons = listOf(
     "☺", "0", ".", "="
 )
 
+val calcButtonsLandscape = listOf(
+    "7", "8", "9", "AC", "÷",
+    "4", "5", "6", "⌫", "×",
+    "1", "2", "3", "$", "-",
+    "☺", "0", ".", "=", "+"
+)
+
 val currencies = listOf(
     "Pound Sterling (GBP)" to "GBP",
     "US Dollar (USD)" to "USD",
@@ -53,6 +69,10 @@ val currencies = listOf(
 
 @Composable
 fun SimpleCalc(modifier: Modifier = Modifier, viewModel: CalcViewModel) {
+
+    // Get the current configuration (for detecting orientation)
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
     //Ensure that navigation and status bar are the same color as the background
     val systemUiController = rememberSystemUiController()
@@ -68,6 +88,26 @@ fun SimpleCalc(modifier: Modifier = Modifier, viewModel: CalcViewModel) {
     val equationText = viewModel.equationText.observeAsState()
     val prevCalcText = viewModel.prevCalcText.observeAsState()
 
+    // Default and minimum font sizes
+    val defaultFontSize = if (isLandscape) 50.sp else 80.sp
+    val minFontSize = if (isLandscape) 25.sp else 40.sp
+
+    // State to control scrolling for both text fields
+    val scrollStateEquation = rememberScrollState()
+    val scrollStatePrevCalc = rememberScrollState()
+
+    // Calculate dynamic font size based on equation length
+    val dynamicFontSize by remember(equationText.value) {
+        derivedStateOf {
+            val equationLength = equationText.value?.length ?: 0
+            when {
+                equationLength > 15 -> minFontSize // Shrink if too long
+                equationLength > 8 -> defaultFontSize * 0.75f // Slightly smaller
+                else -> defaultFontSize // Default size for short equations
+            }
+        }
+    }
+
     Box(modifier = modifier) {
         Column(
             modifier = modifier.fillMaxSize(),
@@ -75,43 +115,77 @@ fun SimpleCalc(modifier: Modifier = Modifier, viewModel: CalcViewModel) {
         ) {
             Spacer(modifier = Modifier.weight(1f))
 
-            Text(
-                text = prevCalcText.value?:"",
-                Modifier.padding(
-                    end = 20.dp
-                ),
-                style = TextStyle(
-                    color = Color(0xFF505050),
-                    fontSize = 30.sp,
-                    textAlign = TextAlign.End
-                ),
-                maxLines = 5,
-                overflow = TextOverflow.Ellipsis
-            )
+            // Scrollable previous equation text
+            Box(
+                modifier = Modifier
+                    .padding(start = 20.dp, end = 20.dp)
+                    .heightIn(max = if (isLandscape) 50.dp else 400.dp) // Set a maximum height for scrolling
+                    .verticalScroll(scrollStatePrevCalc) // Enable vertical scrolling
+            ) {
+                Text(
+                    text = prevCalcText.value ?: "",
+                    style = TextStyle(
+                        color = Color(0xFF505050),
+                        fontSize = if (isLandscape) 20.sp else 30.sp,
+                        textAlign = TextAlign.End
+                    ),
+                    //maxLines = if (isLandscape) 2 else 10,
+                    overflow = TextOverflow.Visible
+                )
+            }
 
-            Text(
-                text = equationText.value?:"0",
-                Modifier.padding(
-                    end = 20.dp
-                ),
-                style = TextStyle(
-                    color = Color.White,
-                    fontSize = 80.sp,
-                    textAlign = TextAlign.End,
-                    fontWeight = FontWeight.Bold
-                ),
-                maxLines = 2,
-            )
+            // Scrollable equation text
+            Box(
+                modifier = Modifier
+                    .padding(start = 20.dp, end = 20.dp)
+                    .heightIn(max = if (isLandscape) 60.dp else 400.dp) // Set a maximum height for scrolling
+                    .verticalScroll(scrollStateEquation) // Enable vertical scrolling
+            ) {
+                Text(
+                    text = equationText.value ?: "0",
+                    style = TextStyle(
+                        color = Color.White,
+                        fontSize = dynamicFontSize,
+                        textAlign = TextAlign.End,
+                        fontWeight = FontWeight.Bold
+                    ),
+                    //maxLines = 7, // Limit the number of lines
+                    overflow = TextOverflow.Visible // Allow visible overflow
+                )
+            }
+
+            // Scroll to the bottom when equation text updates
+            LaunchedEffect(equationText.value) {
+                scrollStateEquation.animateScrollTo(scrollStateEquation.maxValue)
+            }
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(4),
-            ) {
-                items(calcButtons) {
-                    CalcButton(btn = it, onClick = {
-                        viewModel.onButtonClick(it)
-                    })
+            // Adjust layout for landscape mode
+            if (isLandscape) {
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(5), // 6 columns
+                ) {
+                    items(calcButtonsLandscape) {
+                        CalcButton(
+                            btn = it,
+                            onClick = {
+                                viewModel.onButtonClick(it)
+                            },
+                            isLandscape = true
+                        )
+                    }
+                }
+            } else {
+                // Regular portrait mode
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(4), // 4 columns in portrait mode
+                ) {
+                    items(calcButtons) {
+                        CalcButton(btn = it, onClick = {
+                            viewModel.onButtonClick(it)
+                        })
+                    }
                 }
             }
         }
@@ -121,12 +195,19 @@ fun SimpleCalc(modifier: Modifier = Modifier, viewModel: CalcViewModel) {
 }
 
 @Composable
-fun CalcButton(btn : String, onClick: ()-> Unit){
+fun CalcButton(btn : String, onClick: ()-> Unit, isLandscape: Boolean = false){
+    val buttonWidth = if (isLandscape) 150.dp else 85.dp
+    val buttonShape = if (isLandscape) RoundedCornerShape(70) else CircleShape
+    val buttonHeight = if (isLandscape) 40.dp else 60.dp
+    val fontSize = if (isLandscape) 20.sp else 35.sp
+
     Box(modifier = Modifier.padding(5.dp)) {
         FloatingActionButton(
             onClick = onClick,
-            modifier = Modifier.size(85.dp),
-            shape = CircleShape,
+            modifier = Modifier
+                .size(buttonWidth, buttonHeight)
+                .clip(buttonShape),
+            shape = buttonShape,
             contentColor = Color.White,
             containerColor = getColor(btn)
         ) {
@@ -137,7 +218,7 @@ fun CalcButton(btn : String, onClick: ()-> Unit){
                 if (btn == "⌫") {
                     Text(
                         text = btn,
-                        fontSize = 35.sp,
+                        fontSize = fontSize,
                         fontWeight = FontWeight.Bold,
                         textAlign = TextAlign.Center,
                         fontFamily = FontFamily.Monospace,  // Using a monospace font for alignment
@@ -146,7 +227,7 @@ fun CalcButton(btn : String, onClick: ()-> Unit){
                 } else {
                     Text(
                         text = btn,
-                        fontSize = 35.sp,
+                        fontSize = fontSize,
                         fontWeight = FontWeight.Bold,
                         textAlign = TextAlign.Center,
                         fontFamily = FontFamily.Monospace // Using the same monospace font for consistency
