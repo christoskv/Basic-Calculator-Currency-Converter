@@ -164,7 +164,7 @@ fun SimpleCalc(modifier: Modifier = Modifier, viewModel: CalcViewModel) {
             // Adjust layout for landscape mode
             if (isLandscape) {
                 LazyVerticalGrid(
-                    columns = GridCells.Fixed(5), // 6 columns
+                    columns = GridCells.Fixed(5),
                 ) {
                     items(calcButtonsLandscape) {
                         CalcButton(
@@ -179,7 +179,7 @@ fun SimpleCalc(modifier: Modifier = Modifier, viewModel: CalcViewModel) {
             } else {
                 // Regular portrait mode
                 LazyVerticalGrid(
-                    columns = GridCells.Fixed(4), // 4 columns in portrait mode
+                    columns = GridCells.Fixed(4),
                 ) {
                     items(calcButtons) {
                         CalcButton(btn = it, onClick = {

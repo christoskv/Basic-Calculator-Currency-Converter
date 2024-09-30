@@ -24,7 +24,7 @@ interface FixerService {
     suspend fun getExchangeRates(
         @Query("access_key") accessKey: String = API_KEY,
         @Query("base") baseCurrency: String,
-        @Query("symbols") targetCurrencies: String
+        @Query("symbols") targetCurrencies: String = "EUR,USD,GBP,JPY,TRY,CHF"
     ): ExchangeRatesResponse
 }
 
@@ -39,3 +39,9 @@ object FixerAPI {
         retrofit.create(FixerService::class.java)
     }
 }
+
+// Cache data structure to store exchange rates and the timestamp of the last fetch
+data class CachedExchangeRates(
+    val rates: Map<String, Double>,
+    val timestamp: Long
+)
