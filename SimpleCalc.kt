@@ -10,17 +10,21 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
@@ -88,6 +92,10 @@ fun SimpleCalc(modifier: Modifier = Modifier, viewModel: CalcViewModel) {
     val defaultFontSize = if (isLandscape) 50.sp else 80.sp
     val minFontSize = if (isLandscape) 25.sp else 40.sp
 
+    // State to control scrolling for both text fields
+    val scrollStateEquation = rememberScrollState()
+    val scrollStatePrevCalc = rememberScrollState()
+
     // Calculate dynamic font size based on equation length
     val dynamicFontSize by remember(equationText.value) {
         derivedStateOf {
@@ -107,36 +115,49 @@ fun SimpleCalc(modifier: Modifier = Modifier, viewModel: CalcViewModel) {
         ) {
             Spacer(modifier = Modifier.weight(1f))
 
-            Text(
-                text = prevCalcText.value?:"",
-                Modifier.padding(
-                    start = 20.dp,
-                    end = 20.dp
-                ),
-                style = TextStyle(
-                    color = Color(0xFF505050),
-                    fontSize = if (isLandscape) 20.sp else 30.sp,
-                    textAlign = TextAlign.End
-                ),
-                maxLines = if (isLandscape) 2 else 5,
-                overflow = TextOverflow.Ellipsis
-            )
+            // Scrollable previous equation text
+            Box(
+                modifier = Modifier
+                    .padding(start = 20.dp, end = 20.dp)
+                    .heightIn(max = if (isLandscape) 50.dp else 400.dp) // Set a maximum height for scrolling
+                    .verticalScroll(scrollStatePrevCalc) // Enable vertical scrolling
+            ) {
+                Text(
+                    text = prevCalcText.value ?: "",
+                    style = TextStyle(
+                        color = Color(0xFF505050),
+                        fontSize = if (isLandscape) 20.sp else 30.sp,
+                        textAlign = TextAlign.End
+                    ),
+                    //maxLines = if (isLandscape) 2 else 10,
+                    overflow = TextOverflow.Visible
+                )
+            }
 
-            Text(
-                text = equationText.value?:"0",
-                Modifier.padding(
-                    start = 20.dp,
-                    end = 20.dp
-                ),
-                style = TextStyle(
-                    color = Color.White,
-                    fontSize = dynamicFontSize,
-                    textAlign = TextAlign.End,
-                    fontWeight = FontWeight.Bold
-                ),
-                maxLines = if (isLandscape) 2 else 7,
-                overflow = TextOverflow.Ellipsis
-            )
+            // Scrollable equation text
+            Box(
+                modifier = Modifier
+                    .padding(start = 20.dp, end = 20.dp)
+                    .heightIn(max = if (isLandscape) 60.dp else 400.dp) // Set a maximum height for scrolling
+                    .verticalScroll(scrollStateEquation) // Enable vertical scrolling
+            ) {
+                Text(
+                    text = equationText.value ?: "0",
+                    style = TextStyle(
+                        color = Color.White,
+                        fontSize = dynamicFontSize,
+                        textAlign = TextAlign.End,
+                        fontWeight = FontWeight.Bold
+                    ),
+                    //maxLines = 7, // Limit the number of lines
+                    overflow = TextOverflow.Visible // Allow visible overflow
+                )
+            }
+
+            // Scroll to the bottom when equation text updates
+            LaunchedEffect(equationText.value) {
+                scrollStateEquation.animateScrollTo(scrollStateEquation.maxValue)
+            }
 
             Spacer(modifier = Modifier.height(10.dp))
 
