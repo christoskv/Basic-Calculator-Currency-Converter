@@ -49,6 +49,7 @@ class CalcViewModel(application: Application) : AndroidViewModel(application) {
 
             when {
                 btn == "AC" -> resetToDefault()
+                btn == "$" -> toggleCurrencyPopup(true)
                 //Reset when equation/conversion can't continue
                 conversionDisplayed || infinityFlag || networkFlag || !validAmount -> {
                     resetToDefault()
@@ -57,7 +58,6 @@ class CalcViewModel(application: Application) : AndroidViewModel(application) {
                         _equationText.value = btn
                     }
                 }
-                btn == "$" -> toggleCurrencyPopup(true)
                 btn == "☺" -> return
                 btn == "⌫" -> handleBackspace(equation)
                 btn == "=" -> handleEquals(equation)
@@ -288,8 +288,57 @@ class CalcViewModel(application: Application) : AndroidViewModel(application) {
         return this.toDoubleOrNull() != null
     }
 
-    fun toggleCurrencyPopup(toggle: Boolean) {
-        _showCurrencyDialog.value = toggle  // Show the currency selection dialog
+    private fun updateConversion(amount: Double, rate: Double, targetCurrency: String) {
+        val convertedAmount = amount * rate
+        // Update equationText with converted amount and target currency symbol
+        _equationText.value = String.format(Locale.US, "%.2f %s", convertedAmount, targetCurrency)
+        conversionDisplayed = true
+        previousCurrency = "EUR"
+    }
+
+    // Function to load cached rates from SharedPreferences
+    private fun loadCachedRates() {
+        val ratesJson = preferences.getString("cached_rates", null)
+        val timestamp = preferences.getLong("timestamp", 0L)
+
+        if (ratesJson != null && timestamp != 0L) {
+            val type = object : TypeToken<Map<String, Double>>() {}.type
+            val rates: Map<String, Double> = gson.fromJson(ratesJson, type)
+            cachedRates = CachedExchangeRates(rates, timestamp)
+        }
+    }
+
+    // Function to save cached rates to SharedPreferences
+    private fun saveCachedRates(rates: Map<String, Double>, timestamp: Long) {
+        val editor = preferences.edit()
+        val ratesJson = gson.toJson(rates)
+        editor.putString("cached_rates", ratesJson)
+        editor.putLong("timestamp", timestamp)
+        editor.apply()
+        loadCachedRates()
+    }
+
+    private fun resetToDefault() {
+        _equationText.value = "0"
+        _prevCalcText.value = ""
+        previousCurrency = "EUR"
+        conversionDisplayed = false
+        infinityFlag = false
+        networkFlag = false
+        startedConverting = false
+        validAmount = true
+    }
+
+    // Helper function to extract the amount to be converted
+    fun getCurrentAmount(): Double {
+        // Extract the first number before any operator or space
+        val amount = equationText.value?.split(" ")?.get(0)
+            ?.toDoubleOrNull()?: 0.0
+        return amount
+    }
+
+    fun toggleCurrencyPopup(isPopupVisible: Boolean) {
+        _showCurrencyDialog.value = isPopupVisible  // Show the currency selection dialog
     }
 
     fun convertCurrency(amount: Double, targetCurrency: String) {
@@ -349,46 +398,5 @@ class CalcViewModel(application: Application) : AndroidViewModel(application) {
                 _prevCalcText.value = ""
             }
         }
-    }
-
-    private fun updateConversion(amount: Double, rate: Double, targetCurrency: String) {
-        val convertedAmount = amount * rate
-        // Update equationText with converted amount and target currency symbol
-        _equationText.value = String.format(Locale.US, "%.2f %s", convertedAmount, targetCurrency)
-        conversionDisplayed = true
-        previousCurrency = "EUR"
-    }
-
-    // Function to load cached rates from SharedPreferences
-    private fun loadCachedRates() {
-        val ratesJson = preferences.getString("cached_rates", null)
-        val timestamp = preferences.getLong("timestamp", 0L)
-
-        if (ratesJson != null && timestamp != 0L) {
-            val type = object : TypeToken<Map<String, Double>>() {}.type
-            val rates: Map<String, Double> = gson.fromJson(ratesJson, type)
-            cachedRates = CachedExchangeRates(rates, timestamp)
-        }
-    }
-
-    // Function to save cached rates to SharedPreferences
-    private fun saveCachedRates(rates: Map<String, Double>, timestamp: Long) {
-        val editor = preferences.edit()
-        val ratesJson = gson.toJson(rates)
-        editor.putString("cached_rates", ratesJson)
-        editor.putLong("timestamp", timestamp)
-        editor.apply()
-        loadCachedRates()
-    }
-
-    fun resetToDefault() {
-        _equationText.value = "0"
-        _prevCalcText.value = ""
-        previousCurrency = "EUR"
-        conversionDisplayed = false
-        infinityFlag = false
-        networkFlag = false
-        startedConverting = false
-        validAmount = true
     }
 }

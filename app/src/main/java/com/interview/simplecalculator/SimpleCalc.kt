@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import com.google.accompanist.systemuicontroller.rememberSystemUiController
+import com.interview.simplecalculator.ui.theme.getColor
 
 val calcButtons = listOf(
     "AC", "⌫", "$", "÷",
@@ -99,11 +100,10 @@ fun SimpleCalc(modifier: Modifier = Modifier, viewModel: CalcViewModel) {
     // Calculate dynamic font size based on equation length
     val dynamicFontSize by remember(equationText.value) {
         derivedStateOf {
-            val equationLength = equationText.value?.length ?: 0
-            when {
-                equationLength > 15 -> minFontSize // Shrink if too long
-                equationLength > 8 -> defaultFontSize * 0.75f // Slightly smaller
-                else -> defaultFontSize // Default size for short equations
+            when (equationText.value?.length ?: 0) {
+                in 0..8 -> defaultFontSize
+                in 9..15 -> defaultFontSize * 0.75f
+                else -> minFontSize
             }
         }
     }
@@ -238,18 +238,10 @@ fun CalcButton(btn : String, onClick: ()-> Unit, isLandscape: Boolean = false){
     }
 }
 
-fun getColor(btn : String) : Color{
-    if(btn == "AC" || btn == "⌫" || btn == "+/-" || btn == "$")
-        return Color(0xFF505050)
-    if(btn == "÷" || btn == "×" || btn == "-" || btn == "+" || btn == "=")
-        return Color(0xFFFF9500)
-    return Color(0xFF1C1C1C)
-}
-
 @Composable
-fun CurrencyConverterPopup(viewModel: CalcViewModel, toggle: Boolean) {
+fun CurrencyConverterPopup(viewModel: CalcViewModel, isPopupVisible: Boolean) {
 
-    if (toggle) {
+    if (isPopupVisible) {
         Popup(
             alignment = Alignment.Center,
             onDismissRequest = { viewModel.toggleCurrencyPopup(false) }
@@ -291,13 +283,8 @@ fun CurrencyConverterPopup(viewModel: CalcViewModel, toggle: Boolean) {
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable {
-                                    if (currency == "Reset") {
-                                        viewModel.resetToDefault()
-                                    } else {
-                                        val amount = viewModel.equationText.value?.split(" ")?.get(0)
-                                            ?.toDoubleOrNull()?: 0.0
-                                        viewModel.convertCurrency(amount, symbol)
-                                    }
+                                    val amount = viewModel.getCurrentAmount()
+                                    viewModel.convertCurrency(amount, symbol)
                                     viewModel.toggleCurrencyPopup(false)
                                 }
                                 .padding(12.dp)
