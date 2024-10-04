@@ -102,8 +102,7 @@ class CalcViewModel(application: Application) : AndroidViewModel(application) {
         val result = evaluateEquation(_equationText.value!!)
 
         if (infinityFlag) {
-            _equationText.value = "Infinity"
-            infinityFlag = false  // Reset the flag
+            _equationText.value = "Divided by zero"
         } else {
             //Format result based on its value
             val formattedResult = result.toString().let {
@@ -284,7 +283,7 @@ class CalcViewModel(application: Application) : AndroidViewModel(application) {
                     val a = stack.removeAt(stack.size - 1)
                     if (b == BigDecimal.ZERO) {
                         infinityFlag = true
-                        _equationText.value = "Divide by zero"
+                        return BigDecimal.ZERO
                     } else {
                         stack.add(a.divide(b, 10, RoundingMode.HALF_UP))
                     }

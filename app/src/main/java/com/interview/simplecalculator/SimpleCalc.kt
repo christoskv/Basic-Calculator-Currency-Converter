@@ -90,7 +90,7 @@ fun SimpleCalc(modifier: Modifier = Modifier, viewModel: CalcViewModel) {
     val prevCalcText = viewModel.prevCalcText.observeAsState()
 
     // Default and minimum font sizes
-    val defaultFontSize = if (isLandscape) 50.sp else 80.sp
+    val defaultFontSize = if (isLandscape) 50.sp else 70.sp
     val minFontSize = if (isLandscape) 25.sp else 40.sp
 
     // State to control scrolling for both text fields
