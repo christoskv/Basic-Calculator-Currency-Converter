@@ -74,6 +74,8 @@ class CalcViewModel(application: Application) : AndroidViewModel(application) {
                 isOperator(btn) && (lastChar == null || isOperator(lastChar.toString())) -> return
                 // Prevent starting with an operator
                 (equation == "0" || equation.isEmpty()) && (btn == "×" || btn == "÷" || btn == "+") -> return
+                // Prevent adding more than one decimal point in the current number
+                btn == "." && currentNumberHasDecimal(equation) -> return
                 //Remove default 0 value
                 equation == "0" -> _equationText.value = btn
                 else -> {
@@ -330,6 +332,12 @@ class CalcViewModel(application: Application) : AndroidViewModel(application) {
         editor.putLong("timestamp", timestamp)
         editor.apply()
         loadCachedRates()
+    }
+
+    // Helper function to check if the current number already has a decimal point
+    private fun currentNumberHasDecimal(equation: String): Boolean {
+        val lastNumber = equation.split("[+\\-×÷]".toRegex()).last()  // Get the last number in the equation
+        return lastNumber.contains(".")  // Return true if the last number contains a decimal point
     }
 
     private fun resetToDefault() {
