@@ -10,7 +10,9 @@ import androidx.lifecycle.viewModelScope
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.launch
+import java.math.BigDecimal
 import java.util.Locale
+import java.math.RoundingMode
 
 class CalcViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -97,16 +99,23 @@ class CalcViewModel(application: Application) : AndroidViewModel(application) {
         }
         _prevCalcText.value = _equationText.value
 
-        //Format result based on its value
-        val result = evaluateEquation(_equationText.value!!).toString().let {
-            if (it.length > 9) { //Scientific format for large numbers
-                String.format(Locale.US, "%.3e", it.toDouble()).trimEnd('0').trimEnd('.')
-            } else { //else normal
-                String.format(Locale.US, "%.5f", it.toDouble()).trimEnd('0').trimEnd('.')
-            }.replace(".0", "") //Remove unnecessary .0 from end
+        val result = evaluateEquation(_equationText.value!!)
+
+        if (infinityFlag) {
+            _equationText.value = "Infinity"
+            infinityFlag = false  // Reset the flag
+        } else {
+            //Format result based on its value
+            val formattedResult = result.toString().let {
+                if (it.length > 9) { //Scientific format for large numbers
+                    String.format(Locale.US, "%.3e", it.toBigDecimal()).trimEnd('0').trimEnd('.')
+                } else { //else normal
+                    String.format(Locale.US, "%.5f", it.toDouble()).trimEnd('0').trimEnd('.')
+                }.replace(".0", "") //Remove unnecessary .0 from end
+            }
+            _equationText.value = formattedResult
         }
 
-        _equationText.value = result
         resultDisplayed = true
     }
 
@@ -124,14 +133,14 @@ class CalcViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun isOperator(char: String): Boolean {
-        return char in listOf("+", "-", "×", "÷", "=")
+        return char in listOf("+", "-", "×", "÷", "=", ".")
     }
 
     private fun isMiscBtn(char: String): Boolean {
         return char in listOf("☺", "⌫", "$")
     }
 
-    private fun evaluateEquation(equation: String): Double {
+    private fun evaluateEquation(equation: String): BigDecimal {
         // Replace special characters × and ÷ with * and / for multiplication and division
         val normalizedEquation = equation.replace('×', '*').replace('÷', '/')
 
@@ -245,14 +254,14 @@ class CalcViewModel(application: Application) : AndroidViewModel(application) {
         return output
     }
 
-    private fun evaluatePostfix(tokens: List<String>): Double {
-        val stack = mutableListOf<Double>()  // Stack to hold numbers during evaluation
+    private fun evaluatePostfix(tokens: List<String>): BigDecimal {
+        val stack = mutableListOf<BigDecimal>()  // Stack to hold numbers during evaluation
 
         // Loop through each token in the postfix expression
         for (token in tokens) {
             when {
                 // If it's a number, push it to the stack
-                token.isNumber() -> stack.add(token.toDouble())
+                token.isNumber() -> stack.add(token.toBigDecimal())
 
                 // If it's an operator, pop two numbers from the stack and apply the operator
                 token == "+" -> {
@@ -273,12 +282,18 @@ class CalcViewModel(application: Application) : AndroidViewModel(application) {
                 token == "/" -> {
                     val b = stack.removeAt(stack.size - 1)
                     val a = stack.removeAt(stack.size - 1)
-                    stack.add(a / b)
+                    if (b == BigDecimal.ZERO) {
+                        infinityFlag = true
+                        _equationText.value = "Divide by zero"
+                    } else {
+                        stack.add(a.divide(b, 10, RoundingMode.HALF_UP))
+                    }
+
                 }
             }
         }
 
-        if (stack[0] == Double.POSITIVE_INFINITY || stack[0] == Double.NEGATIVE_INFINITY) infinityFlag = true
+        //if (stack[0] == BigDecimal.POSITIVE_INFINITY || stack[0] == Double.NEGATIVE_INFINITY) infinityFlag = true
 
         return stack[0]
     }
